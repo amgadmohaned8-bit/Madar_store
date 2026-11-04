@@ -1,4 +1,5 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Madar</title></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Madar</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -559,7 +560,7 @@ footer p b{color:var(--gold);font-weight:500}
           <div class="field"><label for="oAddr">Street, building and floor</label><textarea id="oAddr" name="addr" autocomplete="street-address" required></textarea><small class="err" id="eAddr"></small></div>
           <div class="field"><label for="oNote">Notes (optional)</label><input id="oNote" name="note" type="text"></div>
           <button class="btn btn-gold" type="submit" style="width:100%">Review order</button>
-          <p class="fineprint">Delivery inside Cairo only: EGP 70 for Nasr City and nearby areas, EGP 100 for Maadi, New Cairo, Rehab, Zamalek and the rest.</p>
+          <p class="fineprint" id="oFine">Delivery inside Cairo only.</p>
         </form>
       </div>
     </div>
@@ -623,6 +624,13 @@ footer p b{color:var(--gold);font-weight:500}
       <div class="actions"><button class="btn btn-ghost" type="button" id="aSave">Save to site</button><button class="btn btn-ghost" type="button" id="aCopy">Copy site data</button></div>
     </div>
     <div class="admin-sec">
+      <h4>Settings</h4>
+      <div class="row2">
+        <div class="field"><label for="feeIn">Delivery fee (EGP, all Cairo)</label><input id="feeIn" type="number" min="0" step="1" inputmode="numeric" value="70"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-gold" type="button" id="feeSave">Save delivery fee</button></div>
+      </div>
+    </div>
+    <div class="admin-sec">
       <h4>Publish to GitHub (one time setup)</h4>
       <p class="sub" style="margin-bottom:14px">Add this once so new designs are published to your site automatically. The token stays on this device only.</p>
       <div class="row2">
@@ -658,7 +666,7 @@ footer p b{color:var(--gold);font-weight:500}
     {id:'black',name:'Madar Black',price:850,color:'#15161a',glow:'#6c7690',tag:'Back + front',desc:'Black zip hoodie with a bold face print on the front and a big white print on the back.',img:'var(--img-black)'},
     {id:'purple',name:'Madar Purple',price:900,color:'#4a2c47',glow:'#93508d',tag:'Side view',desc:'Rich plum hoodie with a big white print running down the side.',img:'var(--img-purple)'}
   ];
-  var state={custom:[],removed:[],prices:{}};   // custom = designs added by the admin
+  var state={custom:[],removed:[],prices:{},fee:70};   // custom = designs added by the admin
   var published=false;                           // true once the admin's data came from the published file
   var current=null,shown=0,raf=0,admin=false,saveTimer=0,saving=false;
 
@@ -730,6 +738,7 @@ footer p b{color:var(--gold);font-weight:500}
     buildOrbit(list);
     renderCart();
     renderAdminList(list);
+    if($('feeIn')&&document.activeElement!==$('feeIn'))$('feeIn').value=state.fee;
     bindFx();
     if(current)select(current,true,true);
   }
@@ -988,7 +997,7 @@ footer p b{color:var(--gold);font-weight:500}
 
   /* ---------- saving: publish designs.json + images next to the page ---------- */
   function exportData(){
-    return {v:1,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img};})};
+    return {v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img};})};
   }
   function setStatus(msg,kind){var s=$('saveStatus');s.textContent=msg;s.className='status'+(kind?' '+kind:'');}
   function scheduleSave(ms){clearTimeout(saveTimer);saveTimer=setTimeout(saveToSite,ms||600);}
@@ -1034,7 +1043,7 @@ footer p b{color:var(--gold);font-weight:500}
       }else{
         setStatus('Saved on this device only. Add your GitHub settings below to publish for everyone.','warn');
       }
-      try{localStorage.setItem('madar_pending',JSON.stringify({v:1,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})}));}catch(_){}
+      try{localStorage.setItem('madar_pending',JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})}));}catch(_){}
     }
     saving=false;
   }
@@ -1048,7 +1057,7 @@ footer p b{color:var(--gold);font-weight:500}
   $('ghClear').addEventListener('click',function(){try{localStorage.removeItem('madar_gh');}catch(_){}$('ghOwner').value='';$('ghRepo').value='';$('ghToken').value='';toast('Settings removed');});
   $('aSave').addEventListener('click',function(){saveToSite();});
   $('aCopy').addEventListener('click',function(){
-    var data=JSON.stringify({v:1,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})});
+    var data=JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})});
     copyText(data,function(ok){toast(ok?'Site data copied':'Could not copy. Select it from the box below.');if(!ok)showBox(data);});
   });
   function showBox(text){
@@ -1063,13 +1072,13 @@ footer p b{color:var(--gold);font-weight:500}
   }
 
   /* ---------- cart + orders ---------- */
-  var AREAS=[['Nasr City',70],['Heliopolis',70],['Abbassia',70],['Ain Shams',70],['Masr El Gedida',70],['Maadi',100],['New Cairo (Tagamoa)',100],['Rehab',100],['Zamalek',100],['Downtown',100],['Mokattam',100],['Shubra',100],['Helwan',100],['Other area in Cairo',100]];
+  var AREAS=['Nasr City','Heliopolis','Abbassia','Ain Shams','Masr El Gedida','Maadi','New Cairo (Tagamoa)','Rehab','Zamalek','Downtown','Mokattam','Shubra','Helwan','Other area in Cairo'];
   var cart=[];
   try{cart=JSON.parse(localStorage.getItem('madar_cart')||'[]');if(!Array.isArray(cart))cart=[];}catch(_){cart=[];}
   function saveCart(){try{localStorage.setItem('madar_cart',JSON.stringify(cart.map(function(c){return {id:c.id,size:c.size,qty:c.qty};})));}catch(_){}}
   function dOf(id){return designs().filter(function(x){return x.id===id;})[0];}
-  function feeFor(area){for(var i=0;i<AREAS.length;i++)if(AREAS[i][0]===area)return AREAS[i][1];return null;}
-  $('oArea').innerHTML='<option value="">Choose area</option>'+AREAS.map(function(a){return '<option value="'+esc(a[0])+'">'+esc(a[0])+' - EGP '+a[1]+'</option>';}).join('');
+  function feeFor(area){return area?state.fee:null;}
+  $('oArea').innerHTML='<option value="">Choose area</option>'+AREAS.map(function(a){return '<option value="'+esc(a)+'">'+esc(a)+'</option>';}).join('');
   function addToCart(id){
     var d=dOf(id);if(!d)return;
     var l=cart.filter(function(c){return c.id===id&&c.size==='L';})[0];
@@ -1095,6 +1104,7 @@ footer p b{color:var(--gold);font-weight:500}
   function subtotal(){return cart.reduce(function(s,c){var d=dOf(c.id);return s+(d?d.price*c.qty:0);},0);}
   function updateTotals(){
     var sub=subtotal(),fee=feeFor($('oArea').value);
+    $('oFine').textContent='Delivery inside Cairo only: '+money(state.fee)+' flat for every area.';
     $('sSub').textContent=money(sub);
     $('sFee').textContent=fee==null?'Choose area':money(fee);
     $('oTotal').textContent=fee==null?money(sub)+' + delivery':money(sub+fee);
@@ -1158,6 +1168,12 @@ footer p b{color:var(--gold);font-weight:500}
     copyText(lastOrder,function(ok){if(ok)toast('Order details copied');else{var t=$('oSummary');t.focus();t.select();toast('Select the text and copy it');}});
   });
 
+  $('feeSave').addEventListener('click',function(){
+    var v=Math.round(Number($('feeIn').value));
+    if(!(v>=0)||$('feeIn').value===''){toast('Enter a valid fee');return;}
+    state.fee=v;updateTotals();toast('Delivery fee updated');scheduleSave(300);
+  });
+
   /* ---------- start ---------- */
   try{admin=sessionStorage.getItem('madar_admin')==='1';}catch(_){}
   buildMenu();
@@ -1172,6 +1188,7 @@ footer p b{color:var(--gold);font-weight:500}
     try{var raw=localStorage.getItem('madar_pending');if(raw)pend=JSON.parse(raw);}catch(_){}
     var src=pend||data;
     if(src&&Array.isArray(src.designs)){
+      state.fee=Number(src.fee)>0?Math.round(Number(src.fee)):70;
       state.removed=Array.isArray(src.removed)?src.removed:[];
       state.prices=src.prices&&typeof src.prices==='object'?src.prices:{};
       state.custom=src.designs.filter(function(d){return d&&d.id&&d.name&&Number(d.price)>0&&d.img;}).map(function(d){return {id:String(d.id),name:String(d.name),price:Number(d.price),color:/^#[0-9a-f]{6}$/i.test(d.color)?d.color:'#8a8f99',glow:d.glow||lighten(d.color),tag:d.tag||'New',desc:d.desc||'',img:String(d.img),dataUrl:d.dataUrl,unsaved:!!pend};});
@@ -1180,4 +1197,5 @@ footer p b{color:var(--gold);font-weight:500}
   })();
 })();
 </script>
+
 </body></html>
