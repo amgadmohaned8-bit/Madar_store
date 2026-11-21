@@ -5,11 +5,12 @@
  "prices": {
   "purple": 815,
   "black": 800,
-  "gray": 1000
+  "gray": 785
  },
  "olds": {
   "purple": 1200,
-  "black": 1100
+  "black": 1100,
+  "gray": 1000
  },
  "designs": []
 }
