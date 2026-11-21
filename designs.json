@@ -4,11 +4,12 @@
  "removed": [],
  "prices": {
   "purple": 815,
-  "black": 1100,
+  "black": 800,
   "gray": 1000
  },
  "olds": {
-  "purple": 1200
+  "purple": 1200,
+  "black": 1100
  },
  "designs": []
 }
