@@ -119,6 +119,18 @@ h1 .outline{color:transparent;-webkit-text-stroke:2px var(--fg)}
 .price-box .amt{font-family:var(--font-display);font-weight:700;font-size:clamp(32px,4.2vw,48px);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .price-box .amt span{font-size:.42em;color:var(--gold);margin-right:8px;letter-spacing:.06em}
 
+.was{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:currentColor;opacity:.62;font-weight:500;font-family:var(--font-mono);font-size:.62em;letter-spacing:.02em;white-space:nowrap}
+.sale-badge{position:absolute;right:14px;top:14px;z-index:2;padding:6px 12px;border-radius:999px;background:#e5324b;color:#fff;font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.08em;box-shadow:0 8px 22px -8px rgba(229,50,75,.7)}
+.pbadge .was{color:var(--gold-ink);opacity:.7}
+.price-box .was-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.price-box .was-row s{font-family:var(--font-mono);font-size:15px;color:var(--muted);text-decoration:line-through;text-decoration-thickness:2px}
+.price-box .was-row .off{background:#e5324b;color:#fff;border-radius:999px;padding:3px 10px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em}
+.sw .t em .was,.pricelist .was,.promo .was,.chip .was{font-size:1em;margin-right:6px}
+.sw .t em .was,.pricelist .was,.chip .was{color:var(--muted);opacity:1}
+.promo .was{color:var(--gold-ink);opacity:.6}
+.pbadge .was{font-size:13px}
+.drow .ctl .oldin{width:96px}
+.ctl-hint{grid-column:1/-1;font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin:-2px 0 0;text-align:right}
 /* stage */
 .stage{--px:0;--py:0;position:relative;width:100%;max-width:620px;margin-inline:auto;aspect-ratio:1/1.1}
 .ring{position:absolute;border-radius:50%;border:1px solid var(--line)}
@@ -430,6 +442,7 @@ footer p b{color:var(--gold);font-weight:500}
       <div class="buy">
         <div class="price-box" aria-live="polite">
           <small id="pname">Madar</small>
+          <div class="was-row" id="pwas" hidden><s id="pold"></s><span class="off" id="poff"></span></div>
           <div class="amt"><span>EGP</span><b id="pnum">0</b></div>
         </div>
         <button class="btn btn-gold mag" type="button" id="heroOrder">Add to cart
@@ -613,6 +626,7 @@ footer p b{color:var(--gold);font-weight:500}
           <div class="field"><label for="aColor">Color</label><input id="aColor" type="color" value="#8a8f99"></div>
           <div class="field"><label for="aPhoto">Photo</label><input id="aPhoto" type="file" accept="image/*" required><div class="preview" id="aPrev"></div></div>
         </div>
+        <div class="field"><label for="aOld">Old price (EGP, optional - shows as a discount)</label><input id="aOld" type="number" min="1" step="1" inputmode="numeric" placeholder="1000"></div>
         <div class="field"><label for="aDesc">Short description (optional)</label><input id="aDesc" type="text" placeholder="100% cotton, oversized fit"></div>
         <small class="err" id="aErr" role="alert" style="display:block;min-height:20px;margin-bottom:8px"></small>
         <button class="btn btn-gold" type="submit" id="aGo">Add design</button>
@@ -666,18 +680,22 @@ footer p b{color:var(--gold);font-weight:500}
     {id:'black',name:'Madar Black',price:850,color:'#15161a',glow:'#6c7690',tag:'Back + front',desc:'Black zip hoodie with a bold face print on the front and a big white print on the back.',img:'var(--img-black)'},
     {id:'purple',name:'Madar Purple',price:900,color:'#4a2c47',glow:'#93508d',tag:'Side view',desc:'Rich plum hoodie with a big white print running down the side.',img:'var(--img-purple)'}
   ];
-  var state={custom:[],removed:[],prices:{},fee:70};   // custom = designs added by the admin
+  var state={custom:[],removed:[],prices:{},olds:{},fee:70};   // custom = designs added by the admin
   var published=false;                           // true once the admin's data came from the published file
   var current=null,shown=0,raf=0,admin=false,saveTimer=0,saving=false;
 
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function money(n){return 'EGP '+Number(n).toLocaleString('en-US');}
+  function hasOld(d){return Number(d.old)>Number(d.price);}
+  function pct(d){return Math.round((1-Number(d.price)/Number(d.old))*100);}
+  function wasHtml(d){return hasOld(d)?'<s class="was">'+money(d.old)+'</s>':'';}
   function designs(){
     var out=[];
     SEEDS.forEach(function(d){
       if(state.removed.indexOf(d.id)>-1)return;
       var c=Object.assign({},d);
       if(state.prices[d.id]!=null)c.price=Number(state.prices[d.id]);
+      if(state.olds[d.id]!=null)c.old=Number(state.olds[d.id]);
       out.push(c);
     });
     state.custom.forEach(function(d){out.push(d);});
@@ -710,7 +728,7 @@ footer p b{color:var(--gold);font-weight:500}
     /* promo + marquee + footer + price list */
     var prices=list.map(function(d){return d.price;});
     if(list.length&&list.length<=3){
-      $('promo').innerHTML=list.map(function(d){return '<span>'+esc(d.name.replace(/^Madar\s+/i,''))+' <b>'+money(d.price)+'</b></span>';}).join('<i></i>');
+      $('promo').innerHTML=list.map(function(d){return '<span>'+esc(d.name.replace(/^Madar\s+/i,''))+' '+wasHtml(d)+'<b>'+money(d.price)+'</b></span>';}).join('<i></i>');
     }else if(list.length){
       $('promo').innerHTML='<span>'+list.length+' designs</span><i></i><span>From <b>'+money(Math.min.apply(null,prices))+'</b></span>';
     }else $('promo').innerHTML='';
@@ -718,11 +736,11 @@ footer p b{color:var(--gold);font-weight:500}
     var set='<div class="set"><span class="w">Madar</span><span class="d"></span>'+mq+'<span class="w">100% cotton</span><span class="d"></span><span class="w">Stay in your orbit</span><span class="d"></span></div>';
     $('marqueeTrack').innerHTML=set+set.replace('class="set"','class="set" aria-hidden="true"');
     $('footPrices').innerHTML=list.map(function(d){return esc(d.name.replace(/^Madar\s+/i,''))+' <b style="color:var(--gold);font-weight:500">'+money(d.price)+'</b>';}).join(' &middot; ');
-    $('pricelist').innerHTML=list.map(function(d){return '<span>'+esc(d.name.replace(/^Madar\s+/i,''))+' <b>'+money(d.price)+'</b></span>';}).join('');
+    $('pricelist').innerHTML=list.map(function(d){return '<span>'+esc(d.name.replace(/^Madar\s+/i,''))+' '+wasHtml(d)+'<b>'+money(d.price)+'</b>'+(hasOld(d)?' <b style="color:#ff6b7d">-'+pct(d)+'%</b>':'')+'</span>';}).join('');
 
     /* swatches */
     $('swatches').innerHTML=list.map(function(d){
-      return '<div class="sw" style="--c:'+esc(d.color)+'"><input type="radio" name="design" id="sw-'+esc(d.id)+'" value="'+esc(d.id)+'"'+(d.id===current?' checked':'')+'><label for="sw-'+esc(d.id)+'"><span class="dot"></span><span class="t"><b>'+esc(d.name.replace(/^Madar\s+/i,''))+'</b><em>'+money(d.price)+'</em></span></label></div>';
+      return '<div class="sw" style="--c:'+esc(d.color)+'"><input type="radio" name="design" id="sw-'+esc(d.id)+'" value="'+esc(d.id)+'"'+(d.id===current?' checked':'')+'><label for="sw-'+esc(d.id)+'"><span class="dot"></span><span class="t"><b>'+esc(d.name.replace(/^Madar\s+/i,''))+'</b><em>'+wasHtml(d)+money(d.price)+'</em></span></label></div>';
     }).join('');
     /* hero pictures */
     $('pics').innerHTML=list.map(function(d){
@@ -731,9 +749,9 @@ footer p b{color:var(--gold);font-weight:500}
     /* cards */
     $('grid').innerHTML=list.map(function(d,i){
       var glow=d.glow||lighten(d.color);
-      return '<article class="card rv in" style="--c:'+esc(glow)+'"><div class="card-img"><span class="card-tag">'+esc(d.tag||'New')+'</span><div class="shot" role="img" aria-label="'+esc(d.name)+'" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="pbadge"><small>EGP</small>'+esc(Number(d.price).toLocaleString('en-US'))+'</div></div>'
+      return '<article class="card rv in" style="--c:'+esc(glow)+'"><div class="card-img"><span class="card-tag">'+esc(d.tag||'New')+'</span>'+(hasOld(d)?'<span class="sale-badge">-'+pct(d)+'%</span>':'')+'<div class="shot" role="img" aria-label="'+esc(d.name)+'" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="pbadge">'+wasHtml(d)+'<small>EGP</small>'+esc(Number(d.price).toLocaleString('en-US'))+'</div></div>'
         +'<div class="card-body"><div><h3>'+esc(d.name)+'</h3><p>'+esc(d.desc||'100% cotton, oversized fit.')+'</p><p class="meta" style="margin-top:10px">100% cotton</p></div>'
-        +'<button class="btn btn-ghost mag" type="button" data-order="'+esc(d.id)+'">Add to cart &middot; <span class="pr">'+money(d.price)+'</span> <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></button></div></article>';
+        +'<button class="btn btn-ghost mag" type="button" data-order="'+esc(d.id)+'">Add to cart &middot; '+wasHtml(d)+' <span class="pr">'+money(d.price)+'</span> <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></button></div></article>';
     }).join('');
     buildOrbit(list);
     renderCart();
@@ -761,7 +779,9 @@ footer p b{color:var(--gold);font-weight:500}
     current=id;
     $('hero').style.setProperty('--glow',d.glow||lighten(d.color));
     $('pname').textContent=d.name;$('sname').textContent=d.name;
-    $('chipPrice').textContent=money(d.price);
+    $('chipPrice').innerHTML=wasHtml(d)+' '+esc(money(d.price));
+    $('pwas').hidden=!hasOld(d);
+    if(hasOld(d)){$('pold').textContent=money(d.old);$('poff').textContent='-'+pct(d)+'% OFF';}
     Array.prototype.forEach.call(document.querySelectorAll('#pics .pic'),function(p){p.classList.toggle('on',p.dataset.pic===id);});
     if(instant){shown=Number(d.price);paint(shown);}else tween(Number(d.price));
     if(!fromRadio){var r=$('sw-'+id);if(r)r.checked=true;}
@@ -776,7 +796,7 @@ footer p b{color:var(--gold);font-weight:500}
       var b=document.createElement('button');
       b.className='o-item';b.type='button';b.dataset.pick=d.id;
       b.setAttribute('aria-label','Show '+d.name+', '+money(d.price));
-      b.innerHTML='<div class="shot" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><span class="op">'+esc(d.name.replace(/^Madar\s+/i,''))+' &middot; '+money(d.price)+'</span>';
+      b.innerHTML='<div class="shot" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><span class="op">'+esc(d.name.replace(/^Madar\s+/i,''))+' &middot; '+money(d.price)+(hasOld(d)?' (-'+pct(d)+'%)':'')+'</span>';
       box.appendChild(b);
     });
     items=Array.prototype.slice.call(box.querySelectorAll('.o-item'));
@@ -961,20 +981,21 @@ footer p b{color:var(--gold);font-weight:500}
   });
   $('addForm').addEventListener('submit',function(e){
     e.preventDefault();
-    var name=$('aName').value.trim(),price=Number($('aPrice').value),err=$('aErr');err.textContent='';
+    var name=$('aName').value.trim(),price=Number($('aPrice').value),oldP=Math.round(Number($('aOld').value)||0),err=$('aErr');err.textContent='';
     if(!name){err.textContent='Enter the design name.';$('aName').focus();return;}
     if(!(price>0)){err.textContent='Enter the price in EGP.';$('aPrice').focus();return;}
+    if(oldP&&oldP<=price){err.textContent='The old price must be higher than the new price.';$('aOld').focus();return;}
     if(!pendingPhoto){err.textContent='Choose a photo for the design.';$('aPhoto').focus();return;}
     var id='d'+Date.now().toString(36);
     var color=$('aColor').value||'#8a8f99';
-    state.custom.push({id:id,name:name,price:Math.round(price),color:color,glow:lighten(color),tag:'New',desc:$('aDesc').value.trim()||'100% cotton, oversized fit.',img:'img/'+id+'.'+pendingPhoto.ext,dataUrl:pendingPhoto.dataUrl,blob:pendingPhoto.blob,unsaved:true});
+    state.custom.push({id:id,name:name,price:Math.round(price),old:oldP||0,color:color,glow:lighten(color),tag:'New',desc:$('aDesc').value.trim()||'100% cotton, oversized fit.',img:'img/'+id+'.'+pendingPhoto.ext,dataUrl:pendingPhoto.dataUrl,blob:pendingPhoto.blob,unsaved:true});
     $('addForm').reset();$('aPrev').classList.remove('on');pendingPhoto=null;$('aColor').value='#8a8f99';
     current=id;renderAll();toast('Design added');scheduleSave(300);
   });
   function renderAdminList(list){
     var el=$('adminList');
     el.innerHTML=list.map(function(d){
-      return '<div class="drow" data-id="'+esc(d.id)+'"><div class="th" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="nm"><b>'+esc(d.name)+'</b><span>'+esc(d.tag||'')+'</span></div><div class="ctl"><label class="sr" for="pr-'+esc(d.id)+'">Price for '+esc(d.name)+'</label><input id="pr-'+esc(d.id)+'" type="number" min="1" step="1" inputmode="numeric" value="'+Number(d.price)+'"><button class="mini" type="button" data-act="price">Update</button><button class="mini danger" type="button" data-act="remove">Remove</button></div></div>';
+      return '<div class="drow" data-id="'+esc(d.id)+'"><div class="th" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="nm"><b>'+esc(d.name)+'</b><span>'+esc(d.tag||'')+(hasOld(d)?' &middot; <b style="display:inline;color:#ff6b7d">-'+pct(d)+'% sale</b>':'')+'</span></div><div class="ctl"><label class="sr" for="pr-'+esc(d.id)+'">Price for '+esc(d.name)+'</label><input id="pr-'+esc(d.id)+'" type="number" min="1" step="1" inputmode="numeric" placeholder="New price" value="'+Number(d.price)+'"><label class="sr" for="po-'+esc(d.id)+'">Old price for '+esc(d.name)+'</label><input class="oldin" id="po-'+esc(d.id)+'" type="number" min="1" step="1" inputmode="numeric" placeholder="Old price" value="'+(hasOld(d)?Number(d.old):'')+'"><button class="mini" type="button" data-act="price">Update</button><button class="mini danger" type="button" data-act="remove">Remove</button></div></div>';
     }).join('')||'<div class="empty">No designs on the site.</div>';
   }
   $('adminList').addEventListener('click',function(e){
@@ -982,9 +1003,11 @@ footer p b{color:var(--gold);font-weight:500}
     var row=b.closest('.drow'),id=row.dataset.id;
     if(b.dataset.act==='price'){
       var v=Math.round(Number(row.querySelector('input').value));
+      var ov=Math.round(Number(row.querySelector('.oldin').value)||0);
       if(!(v>0)){toast('Enter a valid price');return;}
+      if(ov&&ov<=v){toast('Old price must be higher than the new price');return;}
       var c=state.custom.filter(function(x){return x.id===id;})[0];
-      if(c){c.price=v;c.unsaved=true;}else state.prices[id]=v;
+      if(c){c.price=v;c.old=ov;c.unsaved=true;}else{state.prices[id]=v;if(ov)state.olds[id]=ov;else delete state.olds[id];}
       renderAll();toast('Price updated');scheduleSave(300);
     }
     if(b.dataset.act==='remove'){
@@ -997,7 +1020,7 @@ footer p b{color:var(--gold);font-weight:500}
 
   /* ---------- saving: publish designs.json + images next to the page ---------- */
   function exportData(){
-    return {v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img};})};
+    return {v:1,fee:state.fee,removed:state.removed,prices:state.prices,olds:state.olds,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,old:d.old||0,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img};})};
   }
   function setStatus(msg,kind){var s=$('saveStatus');s.textContent=msg;s.className='status'+(kind?' '+kind:'');}
   function scheduleSave(ms){clearTimeout(saveTimer);saveTimer=setTimeout(saveToSite,ms||600);}
@@ -1043,7 +1066,7 @@ footer p b{color:var(--gold);font-weight:500}
       }else{
         setStatus('Saved on this device only. Add your GitHub settings below to publish for everyone.','warn');
       }
-      try{localStorage.setItem('madar_pending',JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})}));}catch(_){}
+      try{localStorage.setItem('madar_pending',JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,olds:state.olds,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,old:d.old||0,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})}));}catch(_){}
     }
     saving=false;
   }
@@ -1057,7 +1080,7 @@ footer p b{color:var(--gold);font-weight:500}
   $('ghClear').addEventListener('click',function(){try{localStorage.removeItem('madar_gh');}catch(_){}$('ghOwner').value='';$('ghRepo').value='';$('ghToken').value='';toast('Settings removed');});
   $('aSave').addEventListener('click',function(){saveToSite();});
   $('aCopy').addEventListener('click',function(){
-    var data=JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})});
+    var data=JSON.stringify({v:1,fee:state.fee,removed:state.removed,prices:state.prices,olds:state.olds,designs:state.custom.map(function(d){return {id:d.id,name:d.name,price:d.price,old:d.old||0,color:d.color,glow:d.glow,tag:d.tag,desc:d.desc,img:d.img,dataUrl:d.dataUrl};})});
     copyText(data,function(ok){toast(ok?'Site data copied':'Could not copy. Select it from the box below.');if(!ok)showBox(data);});
   });
   function showBox(text){
@@ -1094,7 +1117,7 @@ footer p b{color:var(--gold);font-weight:500}
     $('cartEmpty').hidden=n>0;$('cartFull').hidden=n===0;
     $('cartList').innerHTML=cart.map(function(c,i){
       var d=dOf(c.id);
-      return '<div class="drow cl" data-i="'+i+'"><div class="th" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="nm"><b>'+esc(d.name)+'</b><span>'+money(d.price)+' each</span></div><div class="ctl">'
+      return '<div class="drow cl" data-i="'+i+'"><div class="th" style="background-image:'+imgCss(d).replace(/"/g,'&quot;')+'"></div><div class="nm"><b>'+esc(d.name)+'</b><span>'+(hasOld(d)?'<s style="opacity:.6">'+money(d.old)+'</s> ':'')+money(d.price)+' each</span></div><div class="ctl">'
         +'<label class="sr" for="sz'+i+'">Size</label><select id="sz'+i+'" data-act="size">'+['S','M','L','XL'].map(function(z){return '<option'+(z===c.size?' selected':'')+'>'+z+'</option>';}).join('')+'</select>'
         +'<div class="qty"><button type="button" class="mini" data-act="dec" aria-label="Less">-</button><span aria-live="polite">'+c.qty+'</span><button type="button" class="mini" data-act="inc" aria-label="More">+</button></div>'
         +'<button type="button" class="mini danger" data-act="rm" aria-label="Remove '+esc(d.name)+'">&times;</button></div></div>';
@@ -1191,7 +1214,8 @@ footer p b{color:var(--gold);font-weight:500}
       state.fee=Number(src.fee)>0?Math.round(Number(src.fee)):70;
       state.removed=Array.isArray(src.removed)?src.removed:[];
       state.prices=src.prices&&typeof src.prices==='object'?src.prices:{};
-      state.custom=src.designs.filter(function(d){return d&&d.id&&d.name&&Number(d.price)>0&&d.img;}).map(function(d){return {id:String(d.id),name:String(d.name),price:Number(d.price),color:/^#[0-9a-f]{6}$/i.test(d.color)?d.color:'#8a8f99',glow:d.glow||lighten(d.color),tag:d.tag||'New',desc:d.desc||'',img:String(d.img),dataUrl:d.dataUrl,unsaved:!!pend};});
+      state.olds=src.olds&&typeof src.olds==='object'?src.olds:{};
+      state.custom=src.designs.filter(function(d){return d&&d.id&&d.name&&Number(d.price)>0&&d.img;}).map(function(d){return {id:String(d.id),name:String(d.name),price:Number(d.price),old:Number(d.old)>Number(d.price)?Math.round(Number(d.old)):0,color:/^#[0-9a-f]{6}$/i.test(d.color)?d.color:'#8a8f99',glow:d.glow||lighten(d.color),tag:d.tag||'New',desc:d.desc||'',img:String(d.img),dataUrl:d.dataUrl,unsaved:!!pend};});
       renderAll();
     }
   })();
