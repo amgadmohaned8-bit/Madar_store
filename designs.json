@@ -3,10 +3,12 @@
  "fee": 70,
  "removed": [],
  "prices": {
-  "purple": 1200,
+  "purple": 815,
   "black": 1100,
   "gray": 1000
  },
- "olds": {},
+ "olds": {
+  "purple": 1200
+ },
  "designs": []
 }
